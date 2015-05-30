@@ -1,0 +1,3 @@
+LIBRARY		SPCMR2.dll
+EXPORTS
+	DirectSoundCreate	@1 NONAME
