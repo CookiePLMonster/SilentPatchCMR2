@@ -123,8 +123,6 @@ void ShowNoCDNotification()
 
 char* ReadRegistryString(const char* pKey)
 {
-	// TODO: We should remove all depends on registry keys whatsoever
-
 	char*	pGameBuf = (char*)0x663EE4;
 	HKEY	hKey;
 	if ( RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Codemasters\\Colin McRae Rally 2", 0, KEY_READ, &hKey) == ERROR_SUCCESS )
@@ -135,8 +133,6 @@ char* ReadRegistryString(const char* pKey)
 	}
 	else
 		pGameBuf[0] = '\0';
-
-	// TODO: Make use of inbuilt logger to make it report errors here
 
 	return pGameBuf;
 }
@@ -154,8 +150,8 @@ bool InitialisePaths()
 	return true;
 }
 
-DWORD rawFOV;
-void ReadINI()
+DWORD rawFOV; // default 161218
+void ReadINI( bool& bDebugOverlay, bool& bWindow, bool& bBorderless )
 {
 	wchar_t buffer[32];
 
@@ -172,7 +168,18 @@ void ReadINI()
 		}
 	}
 
-	rawFOV = GetPrivateProfileInt( L"SilentPatch", L"FOV", 161218, L".\\SPCMR2.ini" );
+	GetPrivateProfileString( L"SilentPatch", L"FOV", L"70.0", buffer, _countof(buffer), L".\\SPCMR2.ini" );
+	float fFOV = static_cast<float>(_wtof(buffer));
+
+	if ( fFOV < 30.0f )
+		fFOV = 30.0f;
+	else if ( fFOV > 150.0f )
+		fFOV = 150.0f;
+
+	rawFOV = (161218*70) / fFOV;
+
+	bWindow = GetPrivateProfileInt( L"SilentPatch", L"Window", TRUE, L".\\SPCMR2.ini" ) != FALSE;
+	bBorderless = GetPrivateProfileInt( L"SilentPatch", L"Borderless", TRUE, L".\\SPCMR2.ini" ) != FALSE;
 }
 
 void __declspec(naked) GetFOV()
@@ -188,7 +195,9 @@ void ApplyHooks()
 {
 	using namespace Memory;
 
-	ReadINI();
+	bool	bDebugOverlay = false, bWindow = false, bBorderless = false;
+
+	ReadINI( bDebugOverlay, bWindow, bBorderless );
 
 	// Here all patching takes place
 
@@ -203,15 +212,21 @@ void ApplyHooks()
 	InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
 	Patch<WORD>(0x4D0B3D, 0x2CEB);
 
-	// Windowed mode
-	Patch<BYTE>(0x4A7A98, 0x79);
-	Patch<BYTE>(0x4A7A6F, 0xEB);
+	if ( bWindow )
+	{
+		// Windowed mode
+		Patch<BYTE>(0x4A7A98, 0x79);
+		Patch<BYTE>(0x4A7A6F, 0xEB);
 
-	Nop(0x4A7B7F, 1);
-	InjectHook(0x4A7B80, FullSizeWindow, PATCH_CALL);
+		Nop(0x4A7B7F, 1);
+		InjectHook(0x4A7B80, FullSizeWindow, PATCH_CALL);
 
-	// Borderless
-	Patch<DWORD>(0x4A81B2, WS_POPUP);
+		if ( bBorderless )
+		{
+			// Borderless
+			Patch<DWORD>(0x4A81B2, WS_POPUP);
+		}
+	}
 
 	// Changes to paths handling
 	InjectHook(0x4D176C, InitialisePaths);
