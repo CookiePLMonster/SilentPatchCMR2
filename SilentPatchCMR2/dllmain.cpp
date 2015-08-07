@@ -1,3 +1,10 @@
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#define _CRT_SECURE_NO_WARNINGS
+
+#define WINVER 0x0502
+#define _WIN32_WINNT 0x0502
+
 #include <windows.h>
 #include <cstdio>
 #include <Shlwapi.h>
@@ -31,54 +38,6 @@ void SetHDPath(const char* pPath)
 
 DWORD& Region = *(DWORD*)0x52EA54;
 
-void LogToFile(const char* str, ...)
-{
-	if ( FILE* LogFile = fopen("VCSPC.log", "a") )
-	{
-		SYSTEMTIME	systemTime;
-		va_list		arguments;
-		char		TempString[MAX_PATH];
-
-		va_start(arguments, str);
-		vsnprintf(TempString, sizeof(TempString), str, arguments);
-		GetLocalTime(&systemTime);
-		fprintf(LogFile, "[%02d/%02d/%d %02d:%02d:%02d] ", systemTime.wDay, systemTime.wMonth, systemTime.wYear, systemTime.wHour, systemTime.wMinute, systemTime.wSecond);
-		fputs(TempString, LogFile);
-		fputc('\n', LogFile);
-		fclose(LogFile);
-		va_end(arguments);
-	}
-}
-
-void LogThis(float fX, float fY, void* ptr)
-{
-	LogToFile("Call: %u %g %g", ptr, fX, fY);
-}
-
-void __declspec(naked) ResHack()
-{
-	_asm
-	{
-		push	[esp]
-		push	[esp+4+0Ch]
-		push	[esp+8+10h]
-		call	LogThis
-		add		esp, 0Ch
-		push	4C7D50h
-		retn
-	}
-}
-
-int GetResWidth()
-{
-	return 1280;
-}
-
-int GetResHeight()
-{
-	return 720;
-}
-
 struct CMR2Instance
 {
   int m_dwWidth;
@@ -106,11 +65,6 @@ void FullSizeWindow(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int c
 	cx -= 640;
 	cy -= 480;
 
-	//X = GetSystemMetrics(SM_CXSCREEN);
-	//Y = GetSystemMetrics(SM_CYSCREEN);
-
-	//int		temp = pTheGame->m_dwHeight;
-
 	SetWindowPos(hWnd, hWndInsertAfter, X - (pTheGame->m_dwWidth/2), Y - (pTheGame->m_dwHeight/2), pTheGame->m_dwWidth, pTheGame->m_dwHeight, uFlags);
 }
 
@@ -126,9 +80,9 @@ WRAPPER void RunAtExitCallbacks(int nID) { EAXJMP(0x49C0F0); }
 
 void TestDraw()
 {
-	unsigned char	colour[] = { 255, 255, 255, 255 };
+	unsigned char	colour[] = { 255, 255, 255, 200 };
 
-	RenderText(1, "Custom draw! This game looks fun to mess with!", pTheGame->m_dwWidth / 2, pTheGame->m_dwHeight / 2, colour, 4+2);
+	RenderText(0, "SPCMR2 Build 1 ("__DATE__")", 10, pTheGame->m_dwHeight - 25, colour, 0);
 
 }
 
@@ -211,7 +165,7 @@ void ReadINI()
 	Region = Region_Europe;
 	for ( int i = 0; i < _countof(Regions); i++ )
 	{
-		if ( !wcsicmp( buffer, Regions[i] ) )
+		if ( !_wcsicmp( buffer, Regions[i] ) )
 		{
 			Region = i;
 			break;
@@ -246,30 +200,18 @@ void ApplyHooks()
 	Patch<const wchar_t*>(0x4A973B, L"output.log");
 	InjectHook(0x4A973F, OpenLogFile);
 
-	//InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
-	//Patch<WORD>(0x4D0B3D, 0x2CEB);
+	InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
+	Patch<WORD>(0x4D0B3D, 0x2CEB);
 
 	// Windowed mode
 	Patch<BYTE>(0x4A7A98, 0x79);
-	//Patch<DWORD>(0x4A7A8D, 0);
 	Patch<BYTE>(0x4A7A6F, 0xEB);
 
 	Nop(0x4A7B7F, 1);
 	InjectHook(0x4A7B80, FullSizeWindow, PATCH_CALL);
 
-	//Patch<DWORD>(0x4A8200, 0);
+	// Borderless
 	Patch<DWORD>(0x4A81B2, WS_POPUP);
-	
-	//MemoryVP::Patch<DWORD>(0x4A7BB7, 0x840);
-
-	//MemoryVP::InjectHook(0x405C10, GetResWidth, PATCH_JUMP);
-	//MemoryVP::InjectHook(0x405C30, GetResHeight, PATCH_JUMP);
-	//MemoryVP::Patch<BYTE>(0x4C85E1, 0xC3);
-	//MemoryVP::Patch<DWORD>(0x513200, 0);
-	//MemoryVP::Patch(0x513200, &ResHack);
-	//Patch<BYTE>(0x4A7AB9, 0x11);
-	//Patch<BYTE>(0x4A7AAC, 0xE9);
-	//Patch<DWORD>(0x4A7BB7, 0x00000001l + 0x00000010l);
 
 	// Changes to paths handling
 	InjectHook(0x4D176C, InitialisePaths);
@@ -315,7 +257,7 @@ void ApplyHooks()
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
 {
-	//UNREFERENCED_PARAMETER(hModule);
+	UNREFERENCED_PARAMETER(hModule);
 	UNREFERENCED_PARAMETER(lpReserved);
 
 	switch ( reason )
