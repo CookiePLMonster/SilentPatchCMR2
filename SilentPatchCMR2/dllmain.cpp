@@ -114,6 +114,11 @@ void FullSizeWindow(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int c
 	SetWindowPos(hWnd, hWndInsertAfter, X - (pTheGame->m_dwWidth/2), Y - (pTheGame->m_dwHeight/2), pTheGame->m_dwWidth, pTheGame->m_dwHeight, uFlags);
 }
 
+double CalcRatio(CMR2Instance* pGame)
+{
+	return (65536.0 * (16.0/9.0)) * ( static_cast<double>(pGame->m_dwHeight) / pGame->m_dwWidth );
+}
+
 WRAPPER void RenderText(int nIndex, const char* pText, int nX, int nY, unsigned char* pColour, int flags)
 { EAXJMP(0x40B880); }
 
@@ -283,9 +288,10 @@ void ApplyHooks()
 	// Skip region reading (already read from INI)
 	InjectHook(0x4D15F2, 0x4D1728, PATCH_JUMP);
 
-	// 16:9 aspect ratio
-	static const double		dAspectRatio = 65536.0 / pow((5.0/4.0 * 3.0/4.0), 2);  //(65536.0 /** (4.0/3.0)*/ / (16.0/9.0)) /** (3.0/4.0)*/;
-	Patch<const void*>(0x422D7B, &dAspectRatio);
+	// Proper aspect ratio handling
+	Patch<WORD>(0x422D74, 0x9050);
+	Patch<DWORD>(0x422D76, 0x90909090);
+	InjectHook(0x422D7A, CalcRatio, PATCH_CALL);
 
 	
 	// Re-apply VirtualProtect on .text section
