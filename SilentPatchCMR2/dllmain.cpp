@@ -213,6 +213,8 @@ void ReadINI()
 	}
 }
 
+#include <math.h> 
+
 void ApplyHooks()
 {
 	using namespace Memory;
@@ -282,7 +284,7 @@ void ApplyHooks()
 	InjectHook(0x4D15F2, 0x4D1728, PATCH_JUMP);
 
 	// 16:9 aspect ratio
-	static const double		dAspectRatio = (65536.0 /** (4.0/3.0)*/ / (16.0/9.0)) /** (3.0/4.0)*/;
+	static const double		dAspectRatio = 65536.0 / pow((5.0/4.0 * 3.0/4.0), 2);  //(65536.0 /** (4.0/3.0)*/ / (16.0/9.0)) /** (3.0/4.0)*/;
 	Patch<const void*>(0x422D7B, &dAspectRatio);
 
 	
