@@ -4,7 +4,32 @@
 
 #include "MemoryMgr.h"
 
-#define CMRCALL __stdcall
+enum
+{
+	Region_Europe = 0,
+	Region_America,
+	Region_Japan,
+	Region_Poland
+};
+
+char* const HDPath = (char*)0x6640F0;
+char* const CDPath = (char*)0x664400;
+
+BOOL& bHDPathInit = *(BOOL*)0x664604;
+BOOL& bCDPathInit = *(BOOL*)0x664608;
+
+HWND* const gameWindows = (HWND*)0x663C84;
+DWORD& dwCurrentWindow = *(DWORD*)0x663DAC;
+
+MSG& Msg = *(MSG*)0x663C68;
+
+void SetHDPath(const char* pPath)
+{
+	strcpy(HDPath, pPath);
+	bHDPathInit = TRUE;
+}
+
+DWORD& Region = *(DWORD*)0x52EA54;
 
 void LogToFile(const char* str, ...)
 {
@@ -74,7 +99,7 @@ struct CMR2Instance
 
 CMR2Instance* const pTheGame = (CMR2Instance*)0x660830;
 
-void WINAPI FullSizeWindow(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags)
+void FullSizeWindow(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags)
 {
 	X += 320;
 	Y += 240;
@@ -89,8 +114,10 @@ void WINAPI FullSizeWindow(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx
 	SetWindowPos(hWnd, hWndInsertAfter, X - (pTheGame->m_dwWidth/2), Y - (pTheGame->m_dwHeight/2), pTheGame->m_dwWidth, pTheGame->m_dwHeight, uFlags);
 }
 
-WRAPPER void CMRCALL RenderText(int nIndex, const char* pText, int nX, int nY, unsigned char* pColour, int flags)
+WRAPPER void RenderText(int nIndex, const char* pText, int nX, int nY, unsigned char* pColour, int flags)
 { EAXJMP(0x40B880); }
+
+WRAPPER void RunAtExitCallbacks(int nID) { EAXJMP(0x49C0F0); }
 
 void TestDraw()
 {
@@ -115,6 +142,26 @@ void OpenLogFile(const wchar_t* pFileName)
 		bLogInitialized = TRUE;
 }
 
+void CloseLog()
+{
+	CloseHandle( hLogFile );
+	bLogInitialized = FALSE;
+}
+
+void ShowNoCDNotification()
+{
+	MessageBox( gameWindows[dwCurrentWindow], L"Loading failed! Make sure you have specified a correct region in SPCMR2.ini file.\n\n"
+											  L"Installed regions can be found in CountrySpecific directory.\n\n"
+											  L"If the error persists despite selecting an installed region, your game installation might be corrupted or it's not Full.\n\n"
+											  L"NOTE: Currently, SilentPatchCMR2 only supports Full game installations.",
+											  L"CMR2 File Load Error",
+											  MB_OK|MB_ICONWARNING );
+
+	RunAtExitCallbacks(0);
+	CloseLog();
+	ExitProcess(Msg.wParam);
+}
+
 char* ReadRegistryString(const char* pKey)
 {
 	// TODO: We should remove all depends on registry keys whatsoever
@@ -135,11 +182,45 @@ char* ReadRegistryString(const char* pKey)
 	return pGameBuf;
 }
 
+const char* ReadRegistryString_Stub(const char* pKey)
+{
+	return pKey;
+}
+
+bool InitialisePaths()
+{
+	// TODO: Support installations other than Full
+	SetHDPath(".");
+
+	return true;
+}
+
+void ReadINI()
+{
+	wchar_t buffer[32];
+
+	static const wchar_t* const Regions[] = { L"EUROPE", L"AMERICA", L"JAPAN", L"POLAND" };
+	GetPrivateProfileString( L"SilentPatch", L"Region", L"EUROPE", buffer, _countof(buffer), L".\\SPCMR2.ini" );
+
+	Region = Region_Europe;
+	for ( int i = 0; i < _countof(Regions); i++ )
+	{
+		if ( !wcsicmp( buffer, Regions[i] ) )
+		{
+			Region = i;
+			break;
+		}
+	}
+}
+
 void ApplyHooks()
 {
 	using namespace Memory;
 
+	ReadINI();
+
 	// Here all patching takes place
+
 	// Simplified and fixed regkey reading
 	// VirtualStore isn't pwning the game anymore - it apparently used to in some cases
 	InjectHook(0x4AA720, ReadRegistryString, PATCH_JUMP);
@@ -148,8 +229,8 @@ void ApplyHooks()
 	Patch<const wchar_t*>(0x4A973B, L"output.log");
 	InjectHook(0x4A973F, OpenLogFile);
 
-	InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
-	Patch<WORD>(0x4D0B3D, 0x2CEB);
+	//InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
+	//Patch<WORD>(0x4D0B3D, 0x2CEB);
 
 	// Windowed mode
 	Patch<BYTE>(0x4A7A98, 0x79);
@@ -172,6 +253,33 @@ void ApplyHooks()
 	//Patch<BYTE>(0x4A7AB9, 0x11);
 	//Patch<BYTE>(0x4A7AAC, 0xE9);
 	//Patch<DWORD>(0x4A7BB7, 0x00000001l + 0x00000010l);
+
+	// Changes to paths handling
+	InjectHook(0x4D176C, InitialisePaths);
+	Patch<const char*>(0x40EDA1, "CountrySpecific");
+	Patch<const char*>(0x40ED61, "Fonts");
+	Patch<const char*>(0x40EDD1, "CountrySpecific");
+	Patch<const char*>(0x40EDB1, "SetupRep");
+	Patch<const char*>(0x40ED31, "Sounds");
+	Patch<const char*>(0x40ED81, "FrontEnd\\Videos");
+	Patch<const char*>(0x40ED21, "Game\\Tracks");
+	Patch<const char*>(0x40EDC1, "Game\\BigFiles");
+	Patch<const char*>(0x40ED51, "Textures");
+	Patch<const char*>(0x40ED41, "Game\\Cars");
+	Patch<const char*>(0x40ED91, "FrontEnd");
+	Patch<const char*>(0x40ED71, "Sounds\\Music");
+
+	InjectHook(0x40E3FF, ReadRegistryString_Stub);
+	InjectHook(0x40E4AD, ReadRegistryString_Stub);
+
+	// New no CD notification
+	InjectHook(0x4AA480, ShowNoCDNotification, PATCH_JUMP);
+
+	// CDPath -> HDPath
+	Patch<WORD>(0x4AA710, 0xEEEB);
+
+	// Skip region reading (already read from INI)
+	InjectHook(0x4D15F2, 0x4D1728, PATCH_JUMP);
 
 	// 16:9 aspect ratio
 	static const double		dAspectRatio = (65536.0 /** (4.0/3.0)*/ / (16.0/9.0)) /** (3.0/4.0)*/;
