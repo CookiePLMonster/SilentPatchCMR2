@@ -200,6 +200,7 @@ bool InitialisePaths()
 	return true;
 }
 
+DWORD rawFOV;
 void ReadINI()
 {
 	wchar_t buffer[32];
@@ -216,9 +217,18 @@ void ReadINI()
 			break;
 		}
 	}
+
+	rawFOV = GetPrivateProfileInt( L"SilentPatch", L"FOV", 161218, L".\\SPCMR2.ini" );
 }
 
-#include <math.h> 
+void __declspec(naked) GetFOV()
+{
+	_asm
+	{
+		mov		edx, [rawFOV]
+		retn
+	}
+}
 
 void ApplyHooks()
 {
@@ -292,6 +302,10 @@ void ApplyHooks()
 	Patch<WORD>(0x422D74, 0x9050);
 	Patch<DWORD>(0x422D76, 0x90909090);
 	InjectHook(0x422D7A, CalcRatio, PATCH_CALL);
+
+	// Adjustable FOV
+	InjectHook(0x422D61, GetFOV, PATCH_CALL);
+	InjectHook(0x422DAA, GetFOV, PATCH_CALL);
 
 	
 	// Re-apply VirtualProtect on .text section
