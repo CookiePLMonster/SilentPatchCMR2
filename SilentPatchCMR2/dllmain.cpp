@@ -86,25 +86,18 @@ void TestDraw()
 
 }
 
-HANDLE& hLogFile = *(HANDLE*)0x66734C;
-BOOL& bLogInitialized = *(BOOL*)0x667200;
+/*HANDLE& hLogFile = *(HANDLE*)0x66734C;
+BOOL& bLogInitialized = *(BOOL*)0x667200;*/
 void OpenLogFile(const wchar_t* pFileName)
 {
-	// TEMP: Opens a log file in the game directory
-	wchar_t		wcLogPath[MAX_PATH];
-	GetCurrentDirectory(MAX_PATH, wcLogPath);
-	PathAppend(wcLogPath, pFileName);
+}
 
-	hLogFile = CreateFile(wcLogPath, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-
-	if ( hLogFile != INVALID_HANDLE_VALUE )
-		bLogInitialized = TRUE;
+void LogToFile(const char* pLine)
+{
 }
 
 void CloseLog()
 {
-	CloseHandle( hLogFile );
-	bLogInitialized = FALSE;
 }
 
 void ShowNoCDNotification()
@@ -176,7 +169,7 @@ void ReadINI( bool& bDebugOverlay, bool& bWindow, bool& bBorderless )
 	else if ( fFOV > 150.0f )
 		fFOV = 150.0f;
 
-	rawFOV = (161218*70) / fFOV;
+	rawFOV = (161218.0f*70.0f) / fFOV;
 
 	bWindow = GetPrivateProfileInt( L"SilentPatch", L"Window", TRUE, L".\\SPCMR2.ini" ) != FALSE;
 	bBorderless = GetPrivateProfileInt( L"SilentPatch", L"Borderless", TRUE, L".\\SPCMR2.ini" ) != FALSE;
@@ -205,9 +198,10 @@ void ApplyHooks()
 	// VirtualStore isn't pwning the game anymore - it apparently used to in some cases
 	InjectHook(0x4AA720, ReadRegistryString, PATCH_JUMP);
 
-	// TEMP: Logging to game dir
-	Patch<const wchar_t*>(0x4A973B, L"output.log");
+	// Nulled logging (for now?)
 	InjectHook(0x4A973F, OpenLogFile);
+	InjectHook(0x4AB670, LogToFile, PATCH_JUMP);
+	InjectHook(0x4AB6F0, CloseLog, PATCH_JUMP);
 
 	InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
 	Patch<WORD>(0x4D0B3D, 0x2CEB);
