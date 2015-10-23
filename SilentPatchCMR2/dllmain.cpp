@@ -78,12 +78,11 @@ WRAPPER void RenderText(int nIndex, const char* pText, int nX, int nY, unsigned 
 
 WRAPPER void RunAtExitCallbacks(int nID) { EAXJMP(0x49C0F0); }
 
-void TestDraw()
+void DrawSPText()
 {
 	unsigned char	colour[] = { 255, 255, 255, 200 };
 
 	RenderText(0, "SPCMR2 Build 1 ("__DATE__")", 10, pTheGame->m_dwHeight - 25, colour, 0);
-
 }
 
 /*HANDLE& hLogFile = *(HANDLE*)0x66734C;
@@ -184,6 +183,18 @@ void __declspec(naked) GetFOV()
 	}
 }
 
+void __declspec(naked) FrontendDrawHook()
+{
+	_asm
+	{
+		call	DrawSPText
+		mov		eax, dword ptr ds:[817FC4h]
+		
+		mov		ecx, 4D0B70h
+		jmp		ecx
+	}
+}
+
 void ApplyHooks()
 {
 	using namespace Memory;
@@ -203,8 +214,7 @@ void ApplyHooks()
 	InjectHook(0x4AB670, LogToFile, PATCH_JUMP);
 	InjectHook(0x4AB6F0, CloseLog, PATCH_JUMP);
 
-	InjectHook(0x4D0B38, TestDraw, PATCH_CALL);
-	Patch<WORD>(0x4D0B3D, 0x2CEB);
+	InjectHook(0x4D0B6B, FrontendDrawHook, PATCH_JUMP);
 
 	if ( bWindow )
 	{
@@ -261,7 +271,7 @@ void ApplyHooks()
 	
 	// Re-apply VirtualProtect on .text section
 	DWORD		dwProtect;
-	VirtualProtect((LPVOID)0x401000, 0x10F6F6, PAGE_EXECUTE_READ, &dwProtect);
+	VirtualProtect((LPVOID)0x401000, 0x110000, PAGE_EXECUTE_READ, &dwProtect);
 }
 
 BOOL APIENTRY DllMain(HMODULE hModule, DWORD reason, LPVOID lpReserved)
