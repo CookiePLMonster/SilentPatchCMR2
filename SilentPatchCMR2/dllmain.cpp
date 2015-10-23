@@ -6,6 +6,7 @@
 #define _WIN32_WINNT 0x0502
 
 #include <windows.h>
+#include <mmsystem.h>
 #include <cstdio>
 #include <Shlwapi.h>
 
@@ -56,6 +57,25 @@ struct CMR2Instance
   int field_24;
 };
 
+class MMIOFile
+{
+private:
+	// Size: 0x34 bytes
+	void*	m_pMem;
+	HMMIO	m_hMmio;
+
+public:
+	BOOL	Close()
+	{
+		if ( m_hMmio != nullptr )
+		{
+			mmioClose( m_hMmio, 0 );
+			m_hMmio = nullptr;
+		}
+		return FALSE;
+	}
+};
+
 CMR2Instance* const pTheGame = (CMR2Instance*)0x660830;
 
 void FullSizeWindow(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags)
@@ -82,7 +102,7 @@ void DrawSPText()
 {
 	unsigned char	colour[] = { 255, 255, 255, 200 };
 
-	RenderText(0, "SPCMR2 Build 1 ("__DATE__")", 10, pTheGame->m_dwHeight - 25, colour, 0);
+	RenderText(0, "SPCMR2 Build 2 ("__DATE__")", 10, pTheGame->m_dwHeight - 25, colour, 0);
 }
 
 /*HANDLE& hLogFile = *(HANDLE*)0x66734C;
@@ -215,6 +235,9 @@ void ApplyHooks()
 	InjectHook(0x4AB6F0, CloseLog, PATCH_JUMP);
 
 	InjectHook(0x4D0B6B, FrontendDrawHook, PATCH_JUMP);
+
+	// Fix MMIO Close crash
+	InjectHook(0x4BD960, &MMIOFile::Close, PATCH_JUMP);
 
 	if ( bWindow )
 	{
