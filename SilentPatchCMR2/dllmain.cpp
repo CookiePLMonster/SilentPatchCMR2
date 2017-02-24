@@ -137,7 +137,7 @@ char* ReadRegistryString(const char* pKey)
 {
 	char*	pGameBuf = (char*)0x663EE4;
 	HKEY	hKey;
-	if ( RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Codemasters\\Colin McRae Rally 2", 0, KEY_READ, &hKey) == ERROR_SUCCESS )
+	if ( RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"SOFTWARE\\Codemasters\\Colin McRae Rally 2", 0, KEY_QUERY_VALUE, &hKey) == ERROR_SUCCESS )
 	{
 		DWORD	cbSize = MAX_PATH;
 		RegQueryValueExA(hKey, pKey, nullptr, nullptr, reinterpret_cast<LPBYTE>(pGameBuf), &cbSize);
