@@ -59,10 +59,7 @@
       <ModuleDefinitionFile>SPCMR2.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "D:\gry\Colin McRae Rally 2\SPCMR2.dll"
-</Command>
-    </PostBuildEvent>
+    <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -82,10 +79,7 @@
       <ModuleDefinitionFile>SPCMR2.def</ModuleDefinitionFile>
       <SubSystem>Windows</SubSystem>
     </Link>
-    <PostBuildEvent>
-      <Command>copy /y "$(TargetPath)" "D:\gry\Colin McRae Rally 2\SPCMR2.dll"
-</Command>
-    </PostBuildEvent>
+    <PostBuildEvent />
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="dllmain.cpp" />
