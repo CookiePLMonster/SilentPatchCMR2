@@ -10,7 +10,7 @@
 #include <cstdio>
 #include <Shlwapi.h>
 
-#include "MemoryMgr.h"
+#include "Utils/MemoryMgr.h"
 
 enum
 {

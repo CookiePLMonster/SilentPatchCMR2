@@ -1,0 +1,3 @@
+[submodule "SilentPatchCMR2/Utils"]
+	path = SilentPatchCMR2/Utils
+	url = https://github.com/CookiePLMonster/ModUtils.git
